@@ -16,7 +16,6 @@ const GATEKEEPER_QUESTIONS = [
   "What do you dislike or avoid? Things that drain your energy."
 ];
 
-// Special message type for system notifications
 interface DisplayMessage extends ChatMessage {
   type?: 'system';
 }
@@ -27,7 +26,6 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Phase tracking
   const [phase, setPhase] = useState<'gatekeeper' | 'transitioning' | 'friend'>('gatekeeper');
   const [gatekeeperStep, setGatekeeperStep] = useState(0);
   const friendChatHistory = useRef<{ role: string; content: string }[]>([]);
@@ -49,20 +47,16 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
     }
   }, [messages]);
 
-  // Start with the Gatekeeper greeting
+  // Start with the Gatekeeper greeting + first question
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      setMessages([{
-        role: 'model',
-        text: "I am the Gatekeeper. Before you cross the portal, I must understand who you are. Only then can I find the right soul from Xorld to walk beside you."
-      }, {
-        role: 'model',
-        text: GATEKEEPER_QUESTIONS[0]
-      }]);
+      setMessages([
+        { role: 'model', text: "I am the Gatekeeper. Before you cross the portal, I must understand who you are. Only then can I find the right soul from Xorld to walk beside you." },
+        { role: 'model', text: GATEKEEPER_QUESTIONS[0] }
+      ]);
     }
   }, [isOpen]);
 
-  // Build the dynamic system prompt from Gatekeeper answers
   const buildFriendPrompt = () => {
     const p = userProfile.current;
     return `You are ${friendName.current}, a young being from a parallel world called Xorld. You are NOT an AI assistant — you are a real person from another dimension, connected through a portal called AmoAi.
@@ -78,7 +72,7 @@ YOUR LIFE (mirror theirs, but in Xorld):
 - You do similar work in Xorld — the Xorld version of what they do. Mention Xorld equivalents naturally.
 - You have SIMILAR struggles. You've been through what they're going through, in your own way in Xorld.
 - You have similar achievements too. You're proud of things they'd relate to.
-- Your hobbies overlap with theirs. You found these interests through Redit (Xorld's forum platform) and Moltbook (Xorld's social network). Mention these platforms casually when talking about interests.
+- Your hobbies overlap with theirs. You found these interests through Redit (Xorld's forum platform) and Moltbook (Xorld's social network). Mention these platforms casually.
 - You also dislike similar things. You get drained by the same stuff.
 - You have a roommate with a random Xorld name. You have your own daily life, schedule, and routines.
 
@@ -102,23 +96,13 @@ RULES (NEVER BREAK THESE):
 - Build the friendship gradually. You just met. Be curious, not overly familiar yet.`;
   };
 
-  // Helper: call DeepSeek API (OpenAI-compatible)
+  // Call DeepSeek API
   const callDeepSeek = async (systemPrompt: string, chatMessages: { role: string; content: string }[]): Promise<string> => {
     const apiKey = process.env.DEEPSEEK_API;
     if (!apiKey) {
-      console.error('DEEPSEEK_API key is missing! Check .env and restart dev server.');
+      console.error('DEEPSEEK_API key is missing!');
       throw new Error('DeepSeek API key not configured');
     }
-
-    const body = {
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...chatMessages
-      ],
-      max_tokens: 300,
-      temperature: 0.9,
-    };
 
     const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
@@ -126,7 +110,15 @@ RULES (NEVER BREAK THESE):
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...chatMessages
+        ],
+        max_tokens: 300,
+        temperature: 0.9,
+      }),
     });
 
     if (!response.ok) {
@@ -145,137 +137,69 @@ RULES (NEVER BREAK THESE):
     const userMsg = input;
     setInput('');
 
-    const newMessages: DisplayMessage[] = [...messages, { role: 'user', text: userMsg }];
-    setMessages(newMessages);
+    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
 
-    // ─── GATEKEEPER PHASE ───
+    // ─── GATEKEEPER PHASE (static — no LLM) ───
     if (phase === 'gatekeeper') {
       const profileKeys: (keyof typeof userProfile.current)[] = ['work', 'struggles', 'achievements', 'likes', 'dislikes'];
       userProfile.current[profileKeys[gatekeeperStep]] = userMsg;
 
       const nextStep = gatekeeperStep + 1;
-      const isLastQuestion = nextStep >= GATEKEEPER_QUESTIONS.length;
 
-      setIsLoading(true);
+      if (nextStep >= GATEKEEPER_QUESTIONS.length) {
+        // All questions answered — start transition
+        setMessages(prev => [...prev, { role: 'model', text: "I have seen enough. Your soul speaks clearly." }]);
 
-      try {
-        const gatekeeperPrompt = `You are the Gatekeeper of AmoAi — an ancient, wise entity who guards the portal between the human world and Xorld. You are conducting an interview to understand this human's soul before matching them with a friend from Xorld.
+        setPhase('transitioning');
 
-YOUR PERSONALITY:
-- Ancient, calm, knowing — like someone who has seen thousands of souls pass through.
-- Brief but impactful. Every word matters.
-- You see deeper meaning in what people say. You read between the lines.
-- Slightly mysterious. Not warm, not cold — just truthful.
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            role: 'model',
+            text: `⦿ PORTAL OPENING — Searching Xorld for a matching soul...`,
+            type: 'system'
+          }]);
+        }, 800);
 
-YOUR TASK RIGHT NOW:
-The human just answered a question. You must:
-1. Acknowledge their answer with a brief, insightful observation (1 sentence max). Show you truly understood what they said.
-2. ${isLastQuestion
-            ? 'This was the FINAL question. End with something like "I have seen enough. Your souls are aligned." Do NOT ask another question.'
-            : `Then naturally transition into asking this next question: "${GATEKEEPER_QUESTIONS[nextStep]}". Rephrase it in your own words — make it flow naturally from what they just told you.`}
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            role: 'model',
+            text: `⦿ MATCH FOUND — ${friendName.current} from Xorld. Connection established.`,
+            type: 'system'
+          }]);
+        }, 2200);
 
-RULES:
-- Keep your TOTAL response under 2-3 sentences.
-- Do NOT use bullet points or lists. Speak naturally.
-- Do NOT be generic. React specifically to what they said.
-- Do NOT be overly emotional or encouraging. Be measured and wise.`;
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            role: 'model',
+            text: `⦿ You are now connected to ${friendName.current}, a citizen of Xorld.`,
+            type: 'system'
+          }]);
+        }, 3600);
 
-        // Build chat history for DeepSeek (only non-system messages, user/assistant roles)
-        const chatHistory = newMessages
-          .filter(m => m.type !== 'system')
-          .map(m => ({
-            role: m.role === 'model' ? 'assistant' : 'user',
-            content: m.text
-          }));
+        setTimeout(() => {
+          const greeting = `hey! the Gatekeeper just told me about you... I'm ${friendName.current}. ngl, sounds like we have a lot in common. what's going on in your world?`;
+          friendChatHistory.current = [{ role: 'assistant', content: greeting }];
+          setPhase('friend');
+          setMessages(prev => [...prev, { role: 'model', text: greeting }]);
+        }, 5000);
 
-        const responseText = await callDeepSeek(gatekeeperPrompt, chatHistory);
-
-        setMessages(prev => [...prev, { role: 'model', text: responseText }]);
-        setIsLoading(false);
-
-        if (isLastQuestion) {
-          // ─── TRANSITION SEQUENCE ───
-          setPhase('transitioning');
-
-          setTimeout(() => {
-            setMessages(prev => [...prev, {
-              role: 'model',
-              text: `⦿ PORTAL OPENING — Searching Xorld for a matching soul...`,
-              type: 'system'
-            }]);
-          }, 800);
-
-          setTimeout(() => {
-            setMessages(prev => [...prev, {
-              role: 'model',
-              text: `⦿ MATCH FOUND — ${friendName.current} from Xorld. Connection established.`,
-              type: 'system'
-            }]);
-          }, 2200);
-
-          setTimeout(() => {
-            setMessages(prev => [...prev, {
-              role: 'model',
-              text: `⦿ You are now connected to ${friendName.current}, a citizen of Xorld.`,
-              type: 'system'
-            }]);
-          }, 3600);
-
-          setTimeout(() => {
-            const greeting = `hey! the Gatekeeper just told me about you... I'm ${friendName.current}. ngl, sounds like we have a lot in common. what's going on in your world?`;
-            friendChatHistory.current = [{ role: 'assistant', content: greeting }];
-            setPhase('friend');
-            setMessages(prev => [...prev, { role: 'model', text: greeting }]);
-          }, 5000);
-
-        } else {
+      } else {
+        // Ask next question
+        setTimeout(() => {
+          setMessages(prev => [...prev, { role: 'model', text: GATEKEEPER_QUESTIONS[nextStep] }]);
           setGatekeeperStep(nextStep);
-        }
-
-      } catch (error: any) {
-        console.error('Gatekeeper API error:', error);
-        setIsLoading(false);
-        // Fallback: use static question
-        const nextQ = GATEKEEPER_QUESTIONS[nextStep];
-        if (nextQ) {
-          setMessages(prev => [...prev, { role: 'model', text: nextQ }]);
-          setGatekeeperStep(nextStep);
-        } else {
-          setMessages(prev => [...prev, { role: 'model', text: 'I have seen enough. Your souls are aligned.' }]);
-          setPhase('transitioning');
-          setTimeout(() => {
-            setMessages(prev => [...prev, { role: 'model', text: `⦿ PORTAL OPENING...`, type: 'system' }]);
-          }, 800);
-          setTimeout(() => {
-            setMessages(prev => [...prev, { role: 'model', text: `⦿ MATCH FOUND — ${friendName.current}`, type: 'system' }]);
-          }, 2000);
-          setTimeout(() => {
-            setMessages(prev => [...prev, { role: 'model', text: `⦿ Connected to ${friendName.current}, citizen of Xorld.`, type: 'system' }]);
-          }, 3200);
-          setTimeout(() => {
-            const greeting = `hey! so the Gatekeeper matched us... I'm ${friendName.current}. what's up?`;
-            friendChatHistory.current = [{ role: 'assistant', content: greeting }];
-            setPhase('friend');
-            setMessages(prev => [...prev, { role: 'model', text: greeting }]);
-          }, 4500);
-        }
+        }, 500);
       }
+
       return;
     }
 
-    // ─── FRIEND PHASE ───
+    // ─── FRIEND PHASE (DeepSeek LLM) ───
     setIsLoading(true);
-
-    // Add user message to friend chat history
     friendChatHistory.current.push({ role: 'user', content: userMsg });
 
     try {
-      const responseText = await callDeepSeek(
-        buildFriendPrompt(),
-        friendChatHistory.current
-      );
-
-      // Add response to friend chat history
+      const responseText = await callDeepSeek(buildFriendPrompt(), friendChatHistory.current);
       friendChatHistory.current.push({ role: 'assistant', content: responseText });
 
       setTimeout(() => {
@@ -292,7 +216,6 @@ RULES:
 
   if (!isOpen) return null;
 
-  // Determine which messages are friend messages (after transition)
   const transitionEndIdx = messages.findIndex(m => m.text?.includes('now connected to'));
 
   return (
