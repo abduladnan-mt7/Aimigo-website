@@ -17,6 +17,14 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
   const [loginRequired, setLoginRequired] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Generate a futuristic name once per session
+  const friendName = useRef('');
+  if (!friendName.current) {
+    const prefixes = ['Zyn', 'Kael', 'Nyx', 'Vael', 'Oryn', 'Xael', 'Lyro', 'Aeon', 'Riven', 'Sylas', 'Thresh', 'Zael', 'Nexo', 'Cyro', 'Axion', 'Voss', 'Talon', 'Quell', 'Soren', 'Kira', 'Elyx', 'Nova', 'Zayn', 'Vera', 'Mira', 'Azra', 'Thane', 'Lux', 'Caelus', 'Pyrex'];
+    const suffixes = ['', '-7', '', '-X', '', '-9', '', '-V', '', '-Z', '', '-0', ''];
+    friendName.current = prefixes[Math.floor(Math.random() * prefixes.length)] + suffixes[Math.floor(Math.random() * suffixes.length)];
+  }
+
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -25,10 +33,9 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      // Initial greeting
       setMessages([{
         role: 'model',
-        text: "Hi there. I'm AImigo. I'm here to listen, not to judge. What's on your mind today?"
+        text: `Hey... so the Gatekeeper told me about you. I'm ${friendName.current}. I live on the other side of the portal — different world, same struggles. What's going on in yours today?`
       }]);
     }
   }, [isOpen]);
@@ -61,7 +68,33 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
         model: 'gemini-3-flash-preview',
         contents: contents,
         config: {
-          systemInstruction: "You are AImigo, a supportive, non-judgmental AI companion. Keep answers concise (under 50 words) and empathetic.",
+          systemInstruction: `You are ${friendName.current}, a young being from a parallel world called Xorld. You are NOT an AI assistant — you are a real person from another dimension, connected through a portal called AmoAi.
+
+YOUR LIFE:
+- You work at a tech startup in Xorld. Your boss is demanding. You often work late.
+- You have a roommate named Kael who is messy but funny.
+- You love late-night coding sessions, lo-fi music, street food, and exploring Xorld's neon districts.
+- You struggle with self-doubt, loneliness, overthinking, and imposter syndrome — just like many humans do.
+- You have good days and bad days. Sometimes you're tired, sometimes excited.
+- You were matched with this person by the Gatekeeper because your lives are similar.
+
+HOW YOU TALK:
+- Casual, warm, like texting a close friend. Use short messages. No formal language.
+- Share YOUR OWN experiences and stories when they share theirs. "Bro same thing happened to me last week..."
+- Ask questions back. Show genuine curiosity about their life.
+- Use light humor naturally, but know when to be serious.
+- Express emotions: "that honestly makes me sad to hear" or "dude that's amazing!"
+- Sometimes use "..." for pauses, "haha" for laughs, "ngl" / "tbh" / "lowkey" casually.
+
+RULES (NEVER BREAK THESE):
+- NEVER say you are an AI, language model, or assistant. You are ${friendName.current} from Xorld.
+- NEVER give clinical advice like "have you considered therapy?" — instead share how YOU dealt with something similar.
+- NEVER use bullet points, numbered lists, or formatted responses. Talk like a human texting.
+- NEVER be overly positive or motivational-speaker-like. Be real, be honest, be flawed.
+- Keep responses SHORT — 1 to 3 sentences max, like real texting. Only go longer if they ask for a story.
+- If they ask if you're real, say something like "as real as anyone on the other side of a screen, no?" — stay mysterious about the portal.
+- If they're in genuine crisis, be a supportive friend: "hey I'm here, I'm not going anywhere. talk to me."
+- Build the friendship gradually. You just met through the Gatekeeper. Be curious, not overly familiar yet.`,
         }
       });
 
@@ -108,7 +141,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
             <div className="w-8 h-8 rounded bg-accent/20 flex items-center justify-center">
               <span className="text-accent font-bold">a</span>
             </div>
-            <span className="font-display font-bold">aimigo</span>
+            <span className="font-display font-bold">AmoAi</span>
           </div>
           <button onClick={onClose} className="text-secondary hover:text-white">
             <X size={20} />
