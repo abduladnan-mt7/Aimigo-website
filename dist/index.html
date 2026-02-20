@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" style="scroll-behavior: smooth;">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AmoAi - A Portal to Genuine Connection</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@400;600;700;800&display=swap"
+    rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Syne', 'sans-serif'],
+          },
+          colors: {
+            background: '#080808',
+            surface: '#111111',
+            elevated: '#1E1E1E',
+            primary: '#FFFFFF',
+            secondary: '#A0A0A0',
+            border: '#3D3D3D',
+            accent: '#00D4FF', // Cyan
+          },
+          animation: {
+            'scroll': 'scroll 40s linear infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'glow': 'glow 2s ease-in-out infinite alternate',
+          },
+          keyframes: {
+            scroll: {
+              '0%': { transform: 'translateX(0)' },
+              '100%': { transform: 'translateX(-50%)' },
+            },
+            glow: {
+              'from': { boxShadow: '0 0 10px #00D4FF, 0 0 20px #00D4FF' },
+              'to': { boxShadow: '0 0 20px #00D4FF, 0 0 30px #00D4FF' },
+            }
+          }
+        },
+      },
+    }
+  </script>
+  <style>
+    body {
+      background-color: #080808;
+      color: #FFFFFF;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #080808;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    .text-glow {
+      text-shadow: 0 0 30px rgba(0, 212, 255, 0.3);
+    }
+
+    .glass-nav {
+      background: rgba(8, 8, 8, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .hero-gradient {
+      background: radial-gradient(circle at 50% 50%, rgba(0, 212, 255, 0.08) 0%, rgba(8, 8, 8, 0) 50%);
+    }
+
+    /* Scroll-Reveal Animation System */
+    .reveal {
+      opacity: 0;
+      transform: translateY(40px);
+      transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: opacity, transform;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 {
+      transition-delay: 0.1s;
+    }
+
+    .reveal-delay-2 {
+      transition-delay: 0.2s;
+    }
+
+    .reveal-delay-3 {
+      transition-delay: 0.3s;
+    }
+
+    /* GPU Containment for heavy sections */
+    section {
+      contain: layout style;
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/index-DGXbuVmf.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-B7glkxt5.css">
+</head>
+
+<body>
+  <div id="root"></div>
+</body>
+
+</html>

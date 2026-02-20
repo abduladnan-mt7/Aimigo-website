@@ -1,0 +1,53 @@
+/* Basic styles for AImigo */
+:root {
+  --background: #050505;
+  --foreground: #ffffff;
+  --secondary: #a1a1aa;
+  --accent: #00f2ff;
+  --card: #111111;
+  --border: rgba(255, 255, 255, 0.1);
+}
+
+.theme-cream {
+  --background: #FDFBF7;
+  --foreground: #1A1A1A;
+  --secondary: #6B6B6B;
+  --accent: #0ea5e9;
+  /* Deepen cyan for contrast on light */
+  --card: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+}
+
+@layer base {
+  body {
+    @apply bg-[var(--background)] text-[var(--foreground)] transition-colors duration-500;
+  }
+}
+
+@keyframes planet-rotate {
+  from {
+    transform: translateX(-50%);
+  }
+
+  to {
+    transform: translateX(50%);
+  }
+}
+
+@keyframes twinkle {
+
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.2);
+  }
+}
+
+.animate-twinkle {
+  animation: twinkle 3s ease-in-out infinite;
+}
