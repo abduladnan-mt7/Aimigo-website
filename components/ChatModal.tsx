@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Send } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
 import { ChatMessage } from '../types';
 
 interface ChatModalProps {
@@ -31,7 +30,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
   // Phase tracking
   const [phase, setPhase] = useState<'gatekeeper' | 'transitioning' | 'friend'>('gatekeeper');
   const [gatekeeperStep, setGatekeeperStep] = useState(0);
-  const friendChatHistory = useRef<{ role: string; text: string }[]>([]);
+  const friendChatHistory = useRef<{ role: string; content: string }[]>([]);
   const userProfile = useRef({
     work: '', struggles: '', achievements: '', likes: '', dislikes: ''
   });
@@ -103,48 +102,41 @@ RULES (NEVER BREAK THESE):
 - Build the friendship gradually. You just met. Be curious, not overly familiar yet.`;
   };
 
-  // Helper: call Gemini API
-  const callGemini = async (systemPrompt: string, chatMessages: { role: string; text: string }[]): Promise<string> => {
-    const apiKey = process.env.API_KEY;
+  // Helper: call DeepSeek API (OpenAI-compatible)
+  const callDeepSeek = async (systemPrompt: string, chatMessages: { role: string; content: string }[]): Promise<string> => {
+    const apiKey = process.env.DEEPSEEK_API;
     if (!apiKey) {
-      console.error('API_KEY is missing! Make sure GEMINI_API_KEY is set in .env and dev server was restarted.');
-      throw new Error('API key not configured');
+      console.error('DEEPSEEK_API key is missing! Check .env and restart dev server.');
+      throw new Error('DeepSeek API key not configured');
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const body = {
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...chatMessages
+      ],
+      max_tokens: 300,
+      temperature: 0.9,
+    };
 
-    // Gemini needs alternating user/model turns — merge consecutive same-role messages
-    const merged: { role: string; text: string }[] = [];
-    for (const msg of chatMessages) {
-      if (merged.length > 0 && merged[merged.length - 1].role === msg.role) {
-        merged[merged.length - 1].text += '\n' + msg.text;
-      } else {
-        merged.push({ ...msg });
-      }
-    }
-
-    // Ensure first message is 'user' role (Gemini requirement)
-    if (merged.length > 0 && merged[0].role !== 'user') {
-      merged.shift();
-    }
-
-    // If no messages left, create a minimal one
-    if (merged.length === 0) {
-      merged.push({ role: 'user', text: 'hello' });
-    }
-
-    const contents = merged.map(m => ({
-      role: m.role,
-      parts: [{ text: m.text }]
-    }));
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: contents as any,
-      config: { systemInstruction: systemPrompt }
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
     });
 
-    return response.text || '...';
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('DeepSeek API error:', response.status, errorText);
+      throw new Error(`DeepSeek API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '...';
   };
 
   const handleSend = async () => {
@@ -188,12 +180,15 @@ RULES:
 - Do NOT be generic. React specifically to what they said.
 - Do NOT be overly emotional or encouraging. Be measured and wise.`;
 
-        // Build a simple user-only history for Gatekeeper context
-        const gatekeeperHistory = newMessages
+        // Build chat history for DeepSeek (only non-system messages, user/assistant roles)
+        const chatHistory = newMessages
           .filter(m => m.type !== 'system')
-          .map(m => ({ role: m.role, text: m.text }));
+          .map(m => ({
+            role: m.role === 'model' ? 'assistant' : 'user',
+            content: m.text
+          }));
 
-        const responseText = await callGemini(gatekeeperPrompt, gatekeeperHistory);
+        const responseText = await callDeepSeek(gatekeeperPrompt, chatHistory);
 
         setMessages(prev => [...prev, { role: 'model', text: responseText }]);
         setIsLoading(false);
@@ -228,8 +223,7 @@ RULES:
 
           setTimeout(() => {
             const greeting = `hey! the Gatekeeper just told me about you... I'm ${friendName.current}. ngl, sounds like we have a lot in common. what's going on in your world?`;
-            // Initialize friend chat history with just this greeting
-            friendChatHistory.current = [{ role: 'model', text: greeting }];
+            friendChatHistory.current = [{ role: 'assistant', content: greeting }];
             setPhase('friend');
             setMessages(prev => [...prev, { role: 'model', text: greeting }]);
           }, 5000);
@@ -247,7 +241,6 @@ RULES:
           setMessages(prev => [...prev, { role: 'model', text: nextQ }]);
           setGatekeeperStep(nextStep);
         } else {
-          // Last question fallback
           setMessages(prev => [...prev, { role: 'model', text: 'I have seen enough. Your souls are aligned.' }]);
           setPhase('transitioning');
           setTimeout(() => {
@@ -261,7 +254,7 @@ RULES:
           }, 3200);
           setTimeout(() => {
             const greeting = `hey! so the Gatekeeper matched us... I'm ${friendName.current}. what's up?`;
-            friendChatHistory.current = [{ role: 'model', text: greeting }];
+            friendChatHistory.current = [{ role: 'assistant', content: greeting }];
             setPhase('friend');
             setMessages(prev => [...prev, { role: 'model', text: greeting }]);
           }, 4500);
@@ -274,16 +267,16 @@ RULES:
     setIsLoading(true);
 
     // Add user message to friend chat history
-    friendChatHistory.current.push({ role: 'user', text: userMsg });
+    friendChatHistory.current.push({ role: 'user', content: userMsg });
 
     try {
-      const responseText = await callGemini(
+      const responseText = await callDeepSeek(
         buildFriendPrompt(),
         friendChatHistory.current
       );
 
       // Add response to friend chat history
-      friendChatHistory.current.push({ role: 'model', text: responseText });
+      friendChatHistory.current.push({ role: 'assistant', content: responseText });
 
       setTimeout(() => {
         setMessages(prev => [...prev, { role: 'model', text: responseText }]);
