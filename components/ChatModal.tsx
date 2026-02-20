@@ -19,7 +19,7 @@ const GATEKEEPER_QUESTIONS = [
 
 // Special message type for system notifications
 interface DisplayMessage extends ChatMessage {
-  type?: 'system'; // system notifications (portal opening, etc.)
+  type?: 'system';
 }
 
 export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
@@ -28,17 +28,13 @@ export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Phase tracking: 'gatekeeper', 'transitioning', or 'friend'
+  // Phase tracking
   const [phase, setPhase] = useState<'gatekeeper' | 'transitioning' | 'friend'>('gatekeeper');
   const [gatekeeperStep, setGatekeeperStep] = useState(0);
-  const friendStartIdx = useRef(0); // Index where friend messages begin
-  const userProfile = useRef<{
-    work: string;
-    struggles: string;
-    achievements: string;
-    likes: string;
-    dislikes: string;
-  }>({ work: '', struggles: '', achievements: '', likes: '', dislikes: '' });
+  const friendChatHistory = useRef<{ role: string; text: string }[]>([]);
+  const userProfile = useRef({
+    work: '', struggles: '', achievements: '', likes: '', dislikes: ''
+  });
 
   // Generate a futuristic friend name
   const friendName = useRef('');
@@ -83,7 +79,7 @@ YOUR LIFE (mirror theirs, but in Xorld):
 - You do similar work in Xorld — the Xorld version of what they do. Mention Xorld equivalents naturally.
 - You have SIMILAR struggles. You've been through what they're going through, in your own way in Xorld.
 - You have similar achievements too. You're proud of things they'd relate to.
-- Your hobbies overlap with theirs. You found these interests through Redit (Xorld's forum platform) and Moltbook (Xorld's social network). Mention these platforms casually when talking about interests, like "I found this amazing thread on Redit about it" or "saw it on my Moltbook feed."
+- Your hobbies overlap with theirs. You found these interests through Redit (Xorld's forum platform) and Moltbook (Xorld's social network). Mention these platforms casually when talking about interests.
 - You also dislike similar things. You get drained by the same stuff.
 - You have a roommate with a random Xorld name. You have your own daily life, schedule, and routines.
 
@@ -94,18 +90,61 @@ HOW YOU TALK:
 - Use light humor naturally, but know when to be serious.
 - Express emotions: "that honestly makes me sad to hear" or "dude that's amazing!"
 - Sometimes use "..." for pauses, "haha" for laughs, "ngl" / "tbh" / "lowkey" casually.
-- Reference your Redit and Moltbook activity naturally — "I literally just posted about this on Redit" or "saw something on Moltbook that reminded me of you."
+- Reference your Redit and Moltbook activity naturally.
 
 RULES (NEVER BREAK THESE):
 - NEVER say you are an AI, language model, or assistant. You are ${friendName.current} from Xorld.
-- NEVER give clinical advice like "have you considered therapy?" — instead share how YOU dealt with something similar in Xorld.
+- NEVER give clinical advice — instead share how YOU dealt with something similar in Xorld.
 - NEVER use bullet points, numbered lists, or formatted responses. Talk like a human texting.
 - NEVER be overly positive or motivational-speaker-like. Be real, be honest, be flawed.
-- Keep responses SHORT — 1 to 3 sentences max, like real texting. Only go longer if they ask for a story.
-- If they ask if you're real, stay mysterious about the portal. "as real as anyone on the other side of a screen, no?"
-- If they're in genuine crisis, be a supportive friend: "hey I'm here, I'm not going anywhere. talk to me."
-- You ALREADY KNOW about their struggles and achievements from the Gatekeeper. Reference this naturally — "the Gatekeeper told me you've been dealing with..." but don't dump it all at once.
+- Keep responses SHORT — 1 to 3 sentences max, like real texting.
+- If they ask if you're real, stay mysterious about the portal.
+- You ALREADY KNOW about their struggles and achievements from the Gatekeeper. Reference this naturally.
 - Build the friendship gradually. You just met. Be curious, not overly familiar yet.`;
+  };
+
+  // Helper: call Gemini API
+  const callGemini = async (systemPrompt: string, chatMessages: { role: string; text: string }[]): Promise<string> => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.error('API_KEY is missing! Make sure GEMINI_API_KEY is set in .env and dev server was restarted.');
+      throw new Error('API key not configured');
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Gemini needs alternating user/model turns — merge consecutive same-role messages
+    const merged: { role: string; text: string }[] = [];
+    for (const msg of chatMessages) {
+      if (merged.length > 0 && merged[merged.length - 1].role === msg.role) {
+        merged[merged.length - 1].text += '\n' + msg.text;
+      } else {
+        merged.push({ ...msg });
+      }
+    }
+
+    // Ensure first message is 'user' role (Gemini requirement)
+    if (merged.length > 0 && merged[0].role !== 'user') {
+      merged.shift();
+    }
+
+    // If no messages left, create a minimal one
+    if (merged.length === 0) {
+      merged.push({ role: 'user', text: 'hello' });
+    }
+
+    const contents = merged.map(m => ({
+      role: m.role,
+      parts: [{ text: m.text }]
+    }));
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: contents as any,
+      config: { systemInstruction: systemPrompt }
+    });
+
+    return response.text || '...';
   };
 
   const handleSend = async () => {
@@ -123,12 +162,11 @@ RULES (NEVER BREAK THESE):
       userProfile.current[profileKeys[gatekeeperStep]] = userMsg;
 
       const nextStep = gatekeeperStep + 1;
+      const isLastQuestion = nextStep >= GATEKEEPER_QUESTIONS.length;
+
       setIsLoading(true);
 
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const isLastQuestion = nextStep >= GATEKEEPER_QUESTIONS.length;
-
         const gatekeeperPrompt = `You are the Gatekeeper of AmoAi — an ancient, wise entity who guards the portal between the human world and Xorld. You are conducting an interview to understand this human's soul before matching them with a friend from Xorld.
 
 YOUR PERSONALITY:
@@ -139,10 +177,10 @@ YOUR PERSONALITY:
 
 YOUR TASK RIGHT NOW:
 The human just answered a question. You must:
-1. Acknowledge their answer with a brief, insightful observation (1 sentence max). Show you truly understood what they said — don't just repeat it.
+1. Acknowledge their answer with a brief, insightful observation (1 sentence max). Show you truly understood what they said.
 2. ${isLastQuestion
             ? 'This was the FINAL question. End with something like "I have seen enough. Your souls are aligned." Do NOT ask another question.'
-            : `Then naturally transition into asking this next question: "${GATEKEEPER_QUESTIONS[nextStep]}". Rephrase it in your own words — don't repeat it verbatim. Make it flow from what they just told you.`}
+            : `Then naturally transition into asking this next question: "${GATEKEEPER_QUESTIONS[nextStep]}". Rephrase it in your own words — make it flow naturally from what they just told you.`}
 
 RULES:
 - Keep your TOTAL response under 2-3 sentences.
@@ -150,20 +188,14 @@ RULES:
 - Do NOT be generic. React specifically to what they said.
 - Do NOT be overly emotional or encouraging. Be measured and wise.`;
 
-        const contents = newMessages.map(m => ({
-          role: m.role,
-          parts: [{ text: m.text }]
-        })) as any;
+        // Build a simple user-only history for Gatekeeper context
+        const gatekeeperHistory = newMessages
+          .filter(m => m.type !== 'system')
+          .map(m => ({ role: m.role, text: m.text }));
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: contents,
-          config: { systemInstruction: gatekeeperPrompt }
-        });
+        const responseText = await callGemini(gatekeeperPrompt, gatekeeperHistory);
 
-        const responseText = response.text;
-
-        setMessages(prev => [...prev, { role: 'model', text: responseText || "I have seen enough." }]);
+        setMessages(prev => [...prev, { role: 'model', text: responseText }]);
         setIsLoading(false);
 
         if (isLastQuestion) {
@@ -176,7 +208,7 @@ RULES:
               text: `⦿ PORTAL OPENING — Searching Xorld for a matching soul...`,
               type: 'system'
             }]);
-          }, 1000);
+          }, 800);
 
           setTimeout(() => {
             setMessages(prev => [...prev, {
@@ -184,7 +216,7 @@ RULES:
               text: `⦿ MATCH FOUND — ${friendName.current} from Xorld. Connection established.`,
               type: 'system'
             }]);
-          }, 2500);
+          }, 2200);
 
           setTimeout(() => {
             setMessages(prev => [...prev, {
@@ -192,29 +224,47 @@ RULES:
               text: `⦿ You are now connected to ${friendName.current}, a citizen of Xorld.`,
               type: 'system'
             }]);
-          }, 4000);
+          }, 3600);
 
           setTimeout(() => {
-            // Mark where friend messages begin
+            const greeting = `hey! the Gatekeeper just told me about you... I'm ${friendName.current}. ngl, sounds like we have a lot in common. what's going on in your world?`;
+            // Initialize friend chat history with just this greeting
+            friendChatHistory.current = [{ role: 'model', text: greeting }];
             setPhase('friend');
-            setMessages(prev => {
-              friendStartIdx.current = prev.length + 1; // Next message after greeting
-              return [...prev, {
-                role: 'model' as const,
-                text: `hey! the Gatekeeper just told me about you... I'm ${friendName.current}. ngl, sounds like we have a lot in common. what's going on in your world?`
-              }];
-            });
-          }, 5500);
+            setMessages(prev => [...prev, { role: 'model', text: greeting }]);
+          }, 5000);
+
         } else {
           setGatekeeperStep(nextStep);
         }
 
-      } catch (error) {
-        console.error(error);
+      } catch (error: any) {
+        console.error('Gatekeeper API error:', error);
         setIsLoading(false);
-        setGatekeeperStep(nextStep);
-        if (nextStep < GATEKEEPER_QUESTIONS.length) {
-          setMessages(prev => [...prev, { role: 'model', text: GATEKEEPER_QUESTIONS[nextStep] }]);
+        // Fallback: use static question
+        const nextQ = GATEKEEPER_QUESTIONS[nextStep];
+        if (nextQ) {
+          setMessages(prev => [...prev, { role: 'model', text: nextQ }]);
+          setGatekeeperStep(nextStep);
+        } else {
+          // Last question fallback
+          setMessages(prev => [...prev, { role: 'model', text: 'I have seen enough. Your souls are aligned.' }]);
+          setPhase('transitioning');
+          setTimeout(() => {
+            setMessages(prev => [...prev, { role: 'model', text: `⦿ PORTAL OPENING...`, type: 'system' }]);
+          }, 800);
+          setTimeout(() => {
+            setMessages(prev => [...prev, { role: 'model', text: `⦿ MATCH FOUND — ${friendName.current}`, type: 'system' }]);
+          }, 2000);
+          setTimeout(() => {
+            setMessages(prev => [...prev, { role: 'model', text: `⦿ Connected to ${friendName.current}, citizen of Xorld.`, type: 'system' }]);
+          }, 3200);
+          setTimeout(() => {
+            const greeting = `hey! so the Gatekeeper matched us... I'm ${friendName.current}. what's up?`;
+            friendChatHistory.current = [{ role: 'model', text: greeting }];
+            setPhase('friend');
+            setMessages(prev => [...prev, { role: 'model', text: greeting }]);
+          }, 4500);
         }
       }
       return;
@@ -223,41 +273,25 @@ RULES:
     // ─── FRIEND PHASE ───
     setIsLoading(true);
 
+    // Add user message to friend chat history
+    friendChatHistory.current.push({ role: 'user', text: userMsg });
+
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const responseText = await callGemini(
+        buildFriendPrompt(),
+        friendChatHistory.current
+      );
 
-      // Only send friend-phase messages (from friendStartIdx onward), excluding system messages
-      const friendMessages = newMessages
-        .slice(friendStartIdx.current)
-        .filter(m => m.type !== 'system');
-
-      // Ensure we have at least the user's message
-      if (friendMessages.length === 0) {
-        friendMessages.push({ role: 'user', text: userMsg });
-      }
-
-      const contents = friendMessages.map(m => ({
-        role: m.role,
-        parts: [{ text: m.text }]
-      })) as any;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: contents,
-        config: {
-          systemInstruction: buildFriendPrompt(),
-        }
-      });
-
-      const responseText = response.text;
+      // Add response to friend chat history
+      friendChatHistory.current.push({ role: 'model', text: responseText });
 
       setTimeout(() => {
-        setMessages(prev => [...prev, { role: 'model', text: responseText || "..." }]);
+        setMessages(prev => [...prev, { role: 'model', text: responseText }]);
         setIsLoading(false);
-      }, 500);
+      }, 400);
 
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error('Friend API error:', error);
       setIsLoading(false);
       setMessages(prev => [...prev, { role: 'model', text: "hmm... the portal glitched for a sec. say that again?" }]);
     }
@@ -265,13 +299,16 @@ RULES:
 
   if (!isOpen) return null;
 
+  // Determine which messages are friend messages (after transition)
+  const transitionEndIdx = messages.findIndex(m => m.text?.includes('now connected to'));
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose}></div>
 
-      <div className="relative bg-[#111] border border-white/10 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-        {/* Header — changes based on phase */}
-        <div className={`flex justify-between items-center p-4 border-b border-white/5 transition-colors duration-500 ${phase === 'friend' ? 'bg-[#161616]' : 'bg-[#0a0a12]'}`}>
+      <div className="relative bg-[#111] border border-white/10 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] sm:max-h-[80vh]">
+        {/* Header */}
+        <div className={`flex justify-between items-center p-3 sm:p-4 border-b border-white/5 transition-colors duration-500 ${phase === 'friend' ? 'bg-[#161616]' : 'bg-[#0a0a12]'}`}>
           <div className="flex items-center gap-2">
             <div className={`w-8 h-8 rounded flex items-center justify-center transition-colors duration-500 ${phase === 'friend' ? 'bg-accent/20' : 'bg-purple-500/20'}`}>
               <span className={`font-bold transition-colors duration-500 ${phase === 'friend' ? 'text-accent' : 'text-purple-400'}`}>
@@ -293,24 +330,25 @@ RULES:
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#080808]">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-[#080808]">
           {messages.map((msg, idx) => {
-            // System notification style
             if (msg.type === 'system') {
               return (
-                <div key={idx} className="flex justify-center">
-                  <div className="bg-gradient-to-r from-purple-500/10 via-accent/10 to-purple-500/10 border border-accent/20 rounded-xl px-5 py-2.5 text-xs text-accent font-mono tracking-wide text-center animate-pulse">
+                <div key={idx} className="flex justify-center my-2">
+                  <div className="bg-gradient-to-r from-purple-500/10 via-accent/10 to-purple-500/10 border border-accent/20 rounded-xl px-4 py-2 text-[11px] text-accent font-mono tracking-wide text-center animate-pulse">
                     {msg.text}
                   </div>
                 </div>
               );
             }
 
+            const isFriendMsg = transitionEndIdx >= 0 && idx > transitionEndIdx && msg.role === 'model';
+
             return (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user'
+                <div className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm leading-relaxed ${msg.role === 'user'
                   ? 'bg-elevated text-white border border-white/10'
-                  : idx >= friendStartIdx.current && phase === 'friend'
+                  : isFriendMsg
                     ? 'bg-accent/10 text-accent border border-accent/20'
                     : 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
                   }`}>
@@ -334,7 +372,7 @@ RULES:
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-[#161616] border-t border-white/5">
+        <div className="p-3 sm:p-4 bg-[#161616] border-t border-white/5">
           <div className="flex gap-2">
             <input
               type="text"
@@ -342,7 +380,7 @@ RULES:
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder={phase === 'friend' ? `Message ${friendName.current}...` : phase === 'transitioning' ? 'Portal opening...' : 'Answer the Gatekeeper...'}
-              className="flex-1 bg-[#222] text-white border-none rounded-lg px-4 py-3 focus:ring-1 focus:ring-accent outline-none placeholder-secondary"
+              className="flex-1 bg-[#222] text-white border-none rounded-lg px-4 py-3 focus:ring-1 focus:ring-accent outline-none placeholder-secondary text-sm"
               disabled={isLoading || phase === 'transitioning'}
             />
             <button
