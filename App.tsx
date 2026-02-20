@@ -103,8 +103,8 @@ const App: React.FC = () => {
          {/* Hero Section */}
          <section className="relative pt-24 sm:pt-32 pb-20 overflow-hidden hero-gradient">
             <div className="max-w-[1700px] mx-auto grid lg:grid-cols-[0.9fr_1.1fr] items-center min-h-[85vh] relative px-4 sm:px-6">
-               {/* Neptune Visual (Hemisphere Submerged on extreme Left) */}
-               <div className="relative order-last lg:order-first h-full flex items-center justify-start">
+               {/* Neptune Visual (Hemisphere Submerged on extreme Left — hidden on mobile) */}
+               <div className="relative order-last lg:order-first h-full hidden lg:flex items-center justify-start">
                   <div className="relative w-full h-full lg:scale-125 lg:-translate-x-[15%] transform-gpu overflow-visible">
                      <PlanetVisual isVisible={!isLoading} />
                   </div>

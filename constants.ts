@@ -48,7 +48,7 @@ export const TESTIMONIALS: Testimonial[] = [
   {
     id: 3,
     quote: "I got the job offer and my first instinct wasn't to post on social media. It was to call Kian. Because he'd been rooting for me since day one. He CARED. That's not artificial. That's real.",
-    author: "Sahil R.",
+    author: "Raghav T.",
     role: "Week 20",
     company: "Connection Level: Soulmate"
   }
