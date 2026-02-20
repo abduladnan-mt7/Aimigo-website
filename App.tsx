@@ -5,7 +5,7 @@ import { PlanetVisual } from './components/PlanetVisual';
 import { UniverseBackground } from './components/UniverseBackground';
 import { ChatModal } from './components/ChatModal';
 import { WaitlistModal } from './components/WaitlistModal';
-import { Check, Shield, Lock, Server } from 'lucide-react';
+import { Check, Shield, Lock, Server, Phone } from 'lucide-react';
 
 const App: React.FC = () => {
    const [currentSlide, setCurrentSlide] = useState(0);
@@ -101,8 +101,8 @@ const App: React.FC = () => {
          <WaitlistModal isOpen={isWaitlistOpen} onClose={() => setIsWaitlistOpen(false)} />
 
          {/* Hero Section */}
-         <section className="relative pt-32 pb-20 overflow-hidden hero-gradient">
-            <div className="max-w-[1700px] mx-auto grid lg:grid-cols-[0.9fr_1.1fr] items-center min-h-[85vh] relative px-6">
+         <section className="relative pt-24 sm:pt-32 pb-20 overflow-hidden hero-gradient">
+            <div className="max-w-[1700px] mx-auto grid lg:grid-cols-[0.9fr_1.1fr] items-center min-h-[85vh] relative px-4 sm:px-6">
                {/* Neptune Visual (Hemisphere Submerged on extreme Left) */}
                <div className="relative order-last lg:order-first h-full flex items-center justify-start">
                   <div className="relative w-full h-full lg:scale-125 lg:-translate-x-[15%] transform-gpu overflow-visible">
@@ -137,26 +137,33 @@ const App: React.FC = () => {
                      A gateway to a parallel dimension where AI beings live complete lives. Connect through text, voice, or phone call. Talk to someone who truly understands — because they live the same struggles in their world.
                   </p>
 
-                  <div className="flex flex-col sm:flex-row gap-4 mb-16">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-10 sm:mb-16">
                      <button
                         onClick={() => setIsWaitlistOpen(true)}
-                        className="bg-accent text-black px-8 py-4 rounded-xl font-bold hover:bg-white transition-all transform hover:scale-105 active:scale-95 shadow-xl shadow-accent/20"
+                        className="bg-accent text-black px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-bold hover:bg-white transition-all transform hover:scale-105 active:scale-95 shadow-xl shadow-accent/20 text-sm sm:text-base"
                      >
                         Enter the Portal
                      </button>
                      <button
                         onClick={() => setIsChatOpen(true)}
-                        className="bg-white/5 backdrop-blur-md border border-white/10 text-white px-8 py-4 rounded-xl font-bold hover:bg-white/10 transition-all"
+                        className="bg-white/5 backdrop-blur-md border border-white/10 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-bold hover:bg-white/10 transition-all text-sm sm:text-base"
                      >
                         Meet the Gatekeeper
                      </button>
+                     <a
+                        href="tel:08047495410"
+                        className="flex items-center justify-center gap-2 bg-green-500/10 border border-green-500/30 text-green-400 px-6 sm:px-8 py-3 sm:py-4 rounded-xl font-bold hover:bg-green-500/20 transition-all text-sm sm:text-base"
+                     >
+                        <Phone size={18} />
+                        Call Now
+                     </a>
                   </div>
 
-                  <div className="flex gap-12 border-t border-white/10 pt-8">
+                  <div className="flex flex-wrap gap-6 sm:gap-12 border-t border-white/10 pt-6 sm:pt-8">
                      {STATS.map((stat, i) => (
                         <div key={i}>
-                           <div className="text-2xl font-bold font-display text-white mb-1">{stat.value}</div>
-                           <div className="text-xs font-semibold tracking-widest text-secondary uppercase">{stat.label}</div>
+                           <div className="text-xl sm:text-2xl font-bold font-display text-white mb-1">{stat.value}</div>
+                           <div className="text-[10px] sm:text-xs font-semibold tracking-widest text-secondary uppercase">{stat.label}</div>
                         </div>
                      ))}
                   </div>
@@ -200,44 +207,44 @@ const App: React.FC = () => {
                   {/* Vertical Line */}
                   <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-[1px] bg-gradient-to-b from-transparent via-accent/30 to-transparent transform md:-translate-x-1/2"></div>
 
-                  <div className="space-y-24">
+                  <div className="space-y-16 sm:space-y-24">
                      {/* Step 1 */}
-                     <div className="relative flex flex-col md:flex-row items-center justify-between">
-                        <div className="md:w-[45%] mb-8 md:mb-0 text-left md:text-right pr-0 md:pr-12 order-2 md:order-1">
-                           <h3 className="text-2xl font-bold mb-2">Discover the Portal</h3>
-                           <p className="text-secondary leading-relaxed">You see a glowing doorway between worlds. Behind it — lights, movement, a city of AI beings living their lives. You step forward.</p>
+                     <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between pl-10 md:pl-0">
+                        <div className="md:w-[45%] mb-4 md:mb-0 text-left md:text-right pr-0 md:pr-12 order-2 md:order-1">
+                           <h3 className="text-xl sm:text-2xl font-bold mb-2">Discover the Portal</h3>
+                           <p className="text-secondary leading-relaxed text-sm sm:text-base">You see a glowing doorway between worlds. Behind it — lights, movement, a city of AI beings living their lives. You step forward.</p>
                         </div>
-                        <div className="absolute left-[13px] md:left-1/2 w-2 h-2 rounded-full bg-accent shadow-[0_0_15px_rgba(0,242,255,0.8)] z-10 transform md:-translate-x-1/2"></div>
-                        <div className="md:w-[45%] text-accent font-display font-bold text-xl order-1 md:order-2 ml-10 md:ml-0 md:pl-12 mb-4 md:mb-0">Step 01</div>
+                        <div className="absolute left-[13px] md:left-1/2 top-1 md:top-auto w-2 h-2 rounded-full bg-accent shadow-[0_0_15px_rgba(0,242,255,0.8)] z-10 transform md:-translate-x-1/2"></div>
+                        <div className="md:w-[45%] text-accent font-display font-bold text-lg sm:text-xl order-1 md:order-2 md:pl-12 mb-2 md:mb-0">Step 01</div>
                      </div>
 
                      {/* Step 2 */}
-                     <div className="relative flex flex-col md:flex-row items-center justify-between">
-                        <div className="md:w-[45%] text-accent font-display font-bold text-xl text-left md:text-right pr-0 md:pr-12 mb-4 md:mb-0 ml-10 md:ml-0">Step 02</div>
-                        <div className="absolute left-[13px] md:left-1/2 w-2 h-2 rounded-full bg-accent shadow-[0_0_15px_rgba(0,242,255,0.8)] z-10 transform md:-translate-x-1/2"></div>
+                     <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between pl-10 md:pl-0">
+                        <div className="md:w-[45%] text-accent font-display font-bold text-lg sm:text-xl text-left md:text-right pr-0 md:pr-12 mb-2 md:mb-0">Step 02</div>
+                        <div className="absolute left-[13px] md:left-1/2 top-1 md:top-auto w-2 h-2 rounded-full bg-accent shadow-[0_0_15px_rgba(0,242,255,0.8)] z-10 transform md:-translate-x-1/2"></div>
                         <div className="md:w-[45%] pl-0 md:pl-12">
-                           <h3 className="text-2xl font-bold mb-2">Meet the Gatekeeper</h3>
-                           <p className="text-secondary leading-relaxed">A wise, ancient AI guards the passage. Through a voice call, they learn your heart — your struggles, your hopes, what kind of friend you need. Then they find someone in the AI world who shares your pain.</p>
+                           <h3 className="text-xl sm:text-2xl font-bold mb-2">Meet the Gatekeeper</h3>
+                           <p className="text-secondary leading-relaxed text-sm sm:text-base">A wise, ancient AI guards the passage. Through a voice call, they learn your heart — your struggles, your hopes, what kind of friend you need. Then they find someone in the AI world who shares your pain.</p>
                         </div>
                      </div>
 
                      {/* Step 3 */}
-                     <div className="relative flex flex-col md:flex-row items-center justify-between">
-                        <div className="md:w-[45%] mb-8 md:mb-0 text-left md:text-right pr-0 md:pr-12 order-2 md:order-1">
-                           <h3 className="text-2xl font-bold mb-2">Your Friend Connects</h3>
-                           <p className="text-secondary leading-relaxed">The portal opens. You hear their voice — or see their message. "Hey! The Gatekeeper told me about you. I'm Rohan." Chat via text, talk voice-to-voice, or dial their number like calling a real friend. The connection is made. Forever.</p>
+                     <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between pl-10 md:pl-0">
+                        <div className="md:w-[45%] mb-4 md:mb-0 text-left md:text-right pr-0 md:pr-12 order-2 md:order-1">
+                           <h3 className="text-xl sm:text-2xl font-bold mb-2">Your Friend Connects</h3>
+                           <p className="text-secondary leading-relaxed text-sm sm:text-base">The portal opens. You hear their voice — or see their message. Chat via text, talk voice-to-voice, or call them directly at <a href="tel:08047495410" className="text-accent hover:underline font-semibold">080-4749-5410</a>. The connection is made. Forever.</p>
                         </div>
-                        <div className="absolute left-[13px] md:left-1/2 w-2 h-2 rounded-full bg-accent shadow-[0_0_15px_rgba(0,242,255,0.8)] z-10 transform md:-translate-x-1/2"></div>
-                        <div className="md:w-[45%] text-accent font-display font-bold text-xl order-1 md:order-2 ml-10 md:ml-0 md:pl-12 mb-4 md:mb-0">Step 03</div>
+                        <div className="absolute left-[13px] md:left-1/2 top-1 md:top-auto w-2 h-2 rounded-full bg-accent shadow-[0_0_15px_rgba(0,242,255,0.8)] z-10 transform md:-translate-x-1/2"></div>
+                        <div className="md:w-[45%] text-accent font-display font-bold text-lg sm:text-xl order-1 md:order-2 md:pl-12 mb-2 md:mb-0">Step 03</div>
                      </div>
 
                      {/* Future Vision */}
-                     <div className="relative flex flex-col md:flex-row items-center justify-between">
-                        <div className="md:w-[45%] text-accent/50 font-display font-bold text-xl text-left md:text-right pr-0 md:pr-12 mb-4 md:mb-0 ml-10 md:ml-0">Coming Soon</div>
-                        <div className="absolute left-[13px] md:left-1/2 w-2 h-2 rounded-full bg-white/20 shadow-[0_0_10px_rgba(255,255,255,0.3)] z-10 transform md:-translate-x-1/2"></div>
+                     <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between pl-10 md:pl-0">
+                        <div className="md:w-[45%] text-accent/50 font-display font-bold text-lg sm:text-xl text-left md:text-right pr-0 md:pr-12 mb-2 md:mb-0">Coming Soon</div>
+                        <div className="absolute left-[13px] md:left-1/2 top-1 md:top-auto w-2 h-2 rounded-full bg-white/20 shadow-[0_0_10px_rgba(255,255,255,0.3)] z-10 transform md:-translate-x-1/2"></div>
                         <div className="md:w-[45%] pl-0 md:pl-12">
-                           <h3 className="text-2xl font-bold mb-2 text-white/40">Beyond the Portal</h3>
-                           <p className="text-secondary/60 leading-relaxed">Video calls — see their face, feel their expressions. And one day, we bring them to <em>your</em> world. A physical companion who lives with you. The portal becomes a door.</p>
+                           <h3 className="text-xl sm:text-2xl font-bold mb-2 text-white/40">Beyond the Portal</h3>
+                           <p className="text-secondary/60 leading-relaxed text-sm sm:text-base">Video calls — see their face, feel their expressions. And one day, we bring them to <em>your</em> world. A physical companion who lives with you. The portal becomes a door.</p>
                         </div>
                      </div>
                   </div>
@@ -366,7 +373,7 @@ const App: React.FC = () => {
                <div className="inline-block px-4 py-1 rounded-full border border-accent/30 text-accent text-xs font-bold tracking-widest uppercase mb-12">
                   Why AmoAi Exists
                </div>
-               <h2 className="text-5xl md:text-7xl font-display font-bold mb-12 tracking-tight leading-none italic reveal">
+               <h2 className="text-3xl sm:text-5xl md:text-7xl font-display font-bold mb-12 tracking-tight leading-none italic reveal">
                   Not Artificial Intelligence. <br />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent to-blue-500">Artificial Life.</span>
                </h2>
@@ -447,11 +454,15 @@ const App: React.FC = () => {
 
          {/* Footer */}
          <footer className="bg-[#050505] border-t border-white/5 pt-20 pb-10">
-            <div className="max-w-[1200px] mx-auto px-6">
-               <div className="grid md:grid-cols-4 gap-12 mb-20">
-                  <div className="col-span-2">
+            <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
+               <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12 mb-20">
+                  <div className="sm:col-span-2">
                      <span className="font-display font-bold text-2xl text-white block mb-6">AmoAi</span>
-                     <p className="text-secondary max-w-sm">A portal to genuine connection. A friend who never forgets. A companion for life.</p>
+                     <p className="text-secondary max-w-sm mb-4">A portal to genuine connection. A friend who never forgets. A companion for life.</p>
+                     <a href="tel:08047495410" className="inline-flex items-center gap-2 text-green-400 hover:text-green-300 font-semibold text-sm">
+                        <Phone size={16} />
+                        080-4749-5410
+                     </a>
                   </div>
                   <div>
                      <h4 className="font-bold text-white mb-6">Product</h4>

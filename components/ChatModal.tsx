@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Send, Lock } from 'lucide-react';
+import { X, Send } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
-import { BrainVisual } from './BrainVisual';
 import { ChatMessage } from '../types';
 
 interface ChatModalProps {
@@ -18,17 +17,21 @@ const GATEKEEPER_QUESTIONS = [
   "What do you dislike or avoid? Things that drain your energy."
 ];
 
+// Special message type for system notifications
+interface DisplayMessage extends ChatMessage {
+  type?: 'system'; // system notifications (portal opening, etc.)
+}
+
 export const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [brainState, setBrainState] = useState<'idle' | 'listening' | 'speaking'>('idle');
-  const [loginRequired, setLoginRequired] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Phase tracking: 'gatekeeper' or 'friend'
-  const [phase, setPhase] = useState<'gatekeeper' | 'friend'>('gatekeeper');
+  // Phase tracking: 'gatekeeper', 'transitioning', or 'friend'
+  const [phase, setPhase] = useState<'gatekeeper' | 'transitioning' | 'friend'>('gatekeeper');
   const [gatekeeperStep, setGatekeeperStep] = useState(0);
+  const friendStartIdx = useRef(0); // Index where friend messages begin
   const userProfile = useRef<{
     work: string;
     struggles: string;
@@ -106,28 +109,24 @@ RULES (NEVER BREAK THESE):
   };
 
   const handleSend = async () => {
-    if (!input.trim() || loginRequired) return;
+    if (!input.trim() || isLoading || phase === 'transitioning') return;
 
     const userMsg = input;
     setInput('');
 
-    const newMessages: ChatMessage[] = [...messages, { role: 'user', text: userMsg }];
+    const newMessages: DisplayMessage[] = [...messages, { role: 'user', text: userMsg }];
     setMessages(newMessages);
 
     // ─── GATEKEEPER PHASE ───
     if (phase === 'gatekeeper') {
-      // Store the answer
       const profileKeys: (keyof typeof userProfile.current)[] = ['work', 'struggles', 'achievements', 'likes', 'dislikes'];
       userProfile.current[profileKeys[gatekeeperStep]] = userMsg;
 
       const nextStep = gatekeeperStep + 1;
-
-      setBrainState('listening');
       setIsLoading(true);
 
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
         const isLastQuestion = nextStep >= GATEKEEPER_QUESTIONS.length;
 
         const gatekeeperPrompt = `You are the Gatekeeper of AmoAi — an ancient, wise entity who guards the portal between the human world and Xorld. You are conducting an interview to understand this human's soul before matching them with a friend from Xorld.
@@ -162,39 +161,57 @@ RULES:
           config: { systemInstruction: gatekeeperPrompt }
         });
 
-        setBrainState('speaking');
         const responseText = response.text;
 
-        setTimeout(() => {
-          setMessages(prev => [...prev, { role: 'model', text: responseText || GATEKEEPER_QUESTIONS[nextStep] || "I have seen enough." }]);
-          setIsLoading(false);
-          setBrainState('idle');
+        setMessages(prev => [...prev, { role: 'model', text: responseText || "I have seen enough." }]);
+        setIsLoading(false);
 
-          if (isLastQuestion) {
-            // Transition to the friend
+        if (isLastQuestion) {
+          // ─── TRANSITION SEQUENCE ───
+          setPhase('transitioning');
+
+          setTimeout(() => {
+            setMessages(prev => [...prev, {
+              role: 'model',
+              text: `⦿ PORTAL OPENING — Searching Xorld for a matching soul...`,
+              type: 'system'
+            }]);
+          }, 1000);
+
+          setTimeout(() => {
+            setMessages(prev => [...prev, {
+              role: 'model',
+              text: `⦿ MATCH FOUND — ${friendName.current} from Xorld. Connection established.`,
+              type: 'system'
+            }]);
+          }, 2500);
+
+          setTimeout(() => {
+            setMessages(prev => [...prev, {
+              role: 'model',
+              text: `⦿ You are now connected to ${friendName.current}, a citizen of Xorld.`,
+              type: 'system'
+            }]);
+          }, 4000);
+
+          setTimeout(() => {
+            // Mark where friend messages begin
             setPhase('friend');
-            setTimeout(() => {
-              setMessages(prev => [...prev, {
-                role: 'model',
-                text: `Opening the portal... connecting you to ${friendName.current}.`
-              }]);
-            }, 1200);
-            setTimeout(() => {
-              setMessages(prev => [...prev, {
-                role: 'model',
-                text: `hey! so the Gatekeeper just told me about you... I'm ${friendName.current}. ngl, sounds like we have a lot in common. what's up?`
-              }]);
-            }, 3000);
-          } else {
-            setGatekeeperStep(nextStep);
-          }
-        }, 600);
+            setMessages(prev => {
+              friendStartIdx.current = prev.length + 1; // Next message after greeting
+              return [...prev, {
+                role: 'model' as const,
+                text: `hey! the Gatekeeper just told me about you... I'm ${friendName.current}. ngl, sounds like we have a lot in common. what's going on in your world?`
+              }];
+            });
+          }, 5500);
+        } else {
+          setGatekeeperStep(nextStep);
+        }
 
       } catch (error) {
         console.error(error);
         setIsLoading(false);
-        setBrainState('idle');
-        // Fallback to static question
         setGatekeeperStep(nextStep);
         if (nextStep < GATEKEEPER_QUESTIONS.length) {
           setMessages(prev => [...prev, { role: 'model', text: GATEKEEPER_QUESTIONS[nextStep] }]);
@@ -204,18 +221,20 @@ RULES:
     }
 
     // ─── FRIEND PHASE ───
-    setBrainState('listening');
     setIsLoading(true);
 
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-      // Only send friend-phase messages (after the Gatekeeper transition)
-      const friendMessages = newMessages.filter((_, idx) => {
-        // Find the index of the friend's first message
-        const transitionIdx = newMessages.findIndex(m => m.text.includes('Opening the portal'));
-        return idx > transitionIdx;
-      });
+      // Only send friend-phase messages (from friendStartIdx onward), excluding system messages
+      const friendMessages = newMessages
+        .slice(friendStartIdx.current)
+        .filter(m => m.type !== 'system');
+
+      // Ensure we have at least the user's message
+      if (friendMessages.length === 0) {
+        friendMessages.push({ role: 'user', text: userMsg });
+      }
 
       const contents = friendMessages.map(m => ({
         role: m.role,
@@ -230,31 +249,18 @@ RULES:
         }
       });
 
-      setBrainState('speaking');
       const responseText = response.text;
 
       setTimeout(() => {
         setMessages(prev => [...prev, { role: 'model', text: responseText || "..." }]);
         setIsLoading(false);
-        setBrainState('idle');
-
-        // Lock after 1 friend interaction
-        const friendUserMsgs = friendMessages.filter(m => m.role === 'user');
-        if (friendUserMsgs.length >= 1) {
-          setLoginRequired(true);
-        }
-      }, 800);
+      }, 500);
 
     } catch (error) {
       console.error(error);
       setIsLoading(false);
-      setBrainState('idle');
+      setMessages(prev => [...prev, { role: 'model', text: "hmm... the portal glitched for a sec. say that again?" }]);
     }
-  };
-
-  const handleLogin = () => {
-    setLoginRequired(false);
-    setMessages(prev => [...prev, { role: 'model', text: `welcome back... missed you ngl. what were we talking about?` }]);
   };
 
   if (!isOpen) return null;
@@ -265,19 +271,19 @@ RULES:
 
       <div className="relative bg-[#111] border border-white/10 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
         {/* Header — changes based on phase */}
-        <div className={`flex justify-between items-center p-4 border-b border-white/5 ${phase === 'gatekeeper' ? 'bg-[#0a0a12]' : 'bg-[#161616]'}`}>
+        <div className={`flex justify-between items-center p-4 border-b border-white/5 transition-colors duration-500 ${phase === 'friend' ? 'bg-[#161616]' : 'bg-[#0a0a12]'}`}>
           <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded flex items-center justify-center ${phase === 'gatekeeper' ? 'bg-purple-500/20' : 'bg-accent/20'}`}>
-              <span className={`font-bold ${phase === 'gatekeeper' ? 'text-purple-400' : 'text-accent'}`}>
-                {phase === 'gatekeeper' ? '⦿' : 'a'}
+            <div className={`w-8 h-8 rounded flex items-center justify-center transition-colors duration-500 ${phase === 'friend' ? 'bg-accent/20' : 'bg-purple-500/20'}`}>
+              <span className={`font-bold transition-colors duration-500 ${phase === 'friend' ? 'text-accent' : 'text-purple-400'}`}>
+                {phase === 'friend' ? 'a' : '⦿'}
               </span>
             </div>
             <div className="flex flex-col">
               <span className="font-display font-bold text-sm">
-                {phase === 'gatekeeper' ? 'The Gatekeeper' : friendName.current}
+                {phase === 'friend' ? friendName.current : 'The Gatekeeper'}
               </span>
               <span className="text-[10px] text-secondary">
-                {phase === 'gatekeeper' ? 'AmoAi Portal' : 'Xorld • Online'}
+                {phase === 'friend' ? 'Xorld • Online' : phase === 'transitioning' ? 'Opening portal...' : 'AmoAi Portal'}
               </span>
             </div>
           </div>
@@ -288,27 +294,38 @@ RULES:
 
         {/* Chat Area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#080808]">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user'
-                ? 'bg-elevated text-white border border-white/10'
-                : phase === 'gatekeeper' && msg.text !== messages[messages.length - 1]?.text
-                  ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-                  : phase === 'gatekeeper'
-                    ? 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
-                    : 'bg-accent/10 text-accent border border-accent/20'
-                }`}>
-                {msg.text}
+          {messages.map((msg, idx) => {
+            // System notification style
+            if (msg.type === 'system') {
+              return (
+                <div key={idx} className="flex justify-center">
+                  <div className="bg-gradient-to-r from-purple-500/10 via-accent/10 to-purple-500/10 border border-accent/20 rounded-xl px-5 py-2.5 text-xs text-accent font-mono tracking-wide text-center animate-pulse">
+                    {msg.text}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user'
+                  ? 'bg-elevated text-white border border-white/10'
+                  : idx >= friendStartIdx.current && phase === 'friend'
+                    ? 'bg-accent/10 text-accent border border-accent/20'
+                    : 'bg-purple-500/10 text-purple-300 border border-purple-500/20'
+                  }`}>
+                  {msg.text}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-accent/5 rounded-2xl px-4 py-3">
+              <div className={`rounded-2xl px-4 py-3 ${phase === 'friend' ? 'bg-accent/5' : 'bg-purple-500/5'}`}>
                 <div className="flex gap-1">
-                  <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"></div>
-                  <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce delay-100"></div>
-                  <div className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce delay-200"></div>
+                  <div className={`w-1.5 h-1.5 rounded-full animate-bounce ${phase === 'friend' ? 'bg-accent' : 'bg-purple-400'}`}></div>
+                  <div className={`w-1.5 h-1.5 rounded-full animate-bounce delay-100 ${phase === 'friend' ? 'bg-accent' : 'bg-purple-400'}`}></div>
+                  <div className={`w-1.5 h-1.5 rounded-full animate-bounce delay-200 ${phase === 'friend' ? 'bg-accent' : 'bg-purple-400'}`}></div>
                 </div>
               </div>
             </div>
@@ -317,39 +334,23 @@ RULES:
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-[#161616] border-t border-white/5 relative">
-          {loginRequired ? (
-            <div className="absolute inset-0 bg-[#161616]/90 backdrop-blur-sm flex items-center justify-center z-10 flex-col gap-3">
-              <Lock className="text-accent" size={24} />
-              <p className="text-white font-medium">Create a free account to continue</p>
-              <button
-                onClick={handleLogin}
-                className="bg-white text-black px-6 py-2 rounded-lg font-bold hover:bg-accent transition-colors"
-              >
-                Sign Up / Login
-              </button>
-            </div>
-          ) : null}
-
+        <div className="p-4 bg-[#161616] border-t border-white/5">
           <div className="flex gap-2">
             <input
               type="text"
               value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                setBrainState(e.target.value ? 'listening' : 'idle');
-              }}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={phase === 'gatekeeper' ? "Answer the Gatekeeper..." : `Message ${friendName.current}...`}
+              placeholder={phase === 'friend' ? `Message ${friendName.current}...` : phase === 'transitioning' ? 'Portal opening...' : 'Answer the Gatekeeper...'}
               className="flex-1 bg-[#222] text-white border-none rounded-lg px-4 py-3 focus:ring-1 focus:ring-accent outline-none placeholder-secondary"
-              disabled={isLoading || loginRequired}
+              disabled={isLoading || phase === 'transitioning'}
             />
             <button
               onClick={handleSend}
-              disabled={isLoading || loginRequired || !input.trim()}
-              className={`p-3 rounded-lg transition-colors disabled:opacity-50 ${phase === 'gatekeeper'
-                ? 'bg-purple-500 text-white hover:bg-purple-400'
-                : 'bg-accent text-black hover:bg-white'
+              disabled={isLoading || phase === 'transitioning' || !input.trim()}
+              className={`p-3 rounded-lg transition-colors disabled:opacity-50 ${phase === 'friend'
+                ? 'bg-accent text-black hover:bg-white'
+                : 'bg-purple-500 text-white hover:bg-purple-400'
                 }`}
             >
               <Send size={20} />
