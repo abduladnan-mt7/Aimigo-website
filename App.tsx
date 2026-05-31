@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { Navbar } from './components/Navbar';
 import { HERO_SLIDES, STATS, FEATURES, TESTIMONIALS, FAQS } from './constants';
 import { PlanetVisual } from './components/PlanetVisual';
@@ -490,6 +491,7 @@ const App: React.FC = () => {
                </div>
             </div>
          </footer>
+         <Analytics />
       </div>
    );
 };

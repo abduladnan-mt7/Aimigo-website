@@ -10,8 +10,9 @@
   },
   "dependencies": {
     "@google/genai": "latest",
-    "react": "latest",
+    "@vercel/analytics": "^2.0.1",
     "lucide-react": "latest",
+    "react": "latest",
     "react-dom": "latest"
   },
   "devDependencies": {
